@@ -1,6 +1,6 @@
 # pan_le_import
 ## Traefik ACME certs to PANOS certificates
-Small tool to read the Traefik 2.2+ acme.json file and import a chosen certificate into a Palo Alto Networks firewall certificate store. Uses XMLAPI, not REST API for increased compatibility
+Small tool to read the Traefik 2.2+ acme.json file and import a chosen certificate into a Palo Alto Networks firewall certificate store using the XMLAPI.
 
 ## Requirements
 pip module cryptography => 3.1
