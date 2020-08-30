@@ -1,5 +1,6 @@
 #import.py - Traefik letsencrypt certificate to Palo Alto Networks Firewall certificate
 #Imports certificate of chosen common name from Traefik 2.2+ acme.json (lets encrypt) and imports it into the Palo Alto firewall
+# NOTE: Requires cryptography 3+ module (for PFX functionality)
 #Author - Michael Bell
 import xml.etree.ElementTree as ET
 import requests, json, base64, random, string
@@ -78,5 +79,10 @@ def main():
     json_contents = get_acme_json()
     certs = get_certificates(json_contents)
     cert_dct = select_certificate(certs, credentials.cert_common_name)
+    if cert_dct is None:
+        print("[ERROR] No certificate matching common name " + credentials.cert_common_name + " was found in acme.json. Aborting")
+        return
     upload_certificate_to_paloalto(cert_dct['private_key'], cert_dct['certificate'],
                                    credentials.cert_common_name)
+
+main()
