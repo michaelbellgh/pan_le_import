@@ -82,6 +82,9 @@ def main():
     if cert_dct is None:
         print("[ERROR] No certificate matching common name " + credentials.cert_common_name + " was found in acme.json. Aborting")
         return
+    if hasattr(credentials, "cert_output_location"):
+        open(credentials.cert_output_location + credentials.cert_common_name + ".crt", "wb").write(cert_dct['certificate'])
+        open(credentials.cert_output_location + credentials.cert_common_name + ".key", "wb").write(cert_dct['private_key'])
     upload_certificate_to_paloalto(cert_dct['private_key'], cert_dct['certificate'],
                                    credentials.cert_common_name)
 
