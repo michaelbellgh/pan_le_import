@@ -139,4 +139,4 @@ cython_debug/
 
 #Project specific files
 credentials.py
-.vscode
+.vscode/
