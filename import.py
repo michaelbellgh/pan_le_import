@@ -13,7 +13,7 @@ from cryptography.hazmat.primitives.serialization import load_pem_private_key, p
 
 import credentials
 
-ACME_JSON_LOCATION = credentials.traefik_acme_location
+ACME_JSON_LOCATION = credentials.traefik_acme_location if hasattr(credentials, "traefik_acme_location") else "acme.json"
 
 def get_acme_json():
     f = open(ACME_JSON_LOCATION, 'r')
@@ -56,6 +56,10 @@ def get_random_alphanumeric_string(length: int):
 #Creates a pkcs12 (.pfx) object/file and uploads to the Palo Alto firewall. Uses credentials.py for API key generation, firewall selection
 def upload_certificate_to_paloalto(private_key: bytes, certificate: bytes, name: str, require_secure_cert: bool):
     #Generates an auth key for subsequent requests
+    if not hasattr(credentials, "username"):
+        raise Exception("No username specified in credentials.py")
+    if not hasattr(credentials, "password"):
+        raise Exception("No password specified in credentials.py")
     xmlapi_key = requests.get("https://" + credentials.hostname + "/api/?type=keygen&user=" + 
                               credentials.username + "&password=" + credentials.password,verify=require_secure_cert)
     xmlapi_key = ET.fromstring(xmlapi_key.text).find(".//key").text
@@ -78,14 +82,17 @@ def upload_certificate_to_paloalto(private_key: bytes, certificate: bytes, name:
 def main():
     json_contents = get_acme_json()
     certs = get_certificates(json_contents)
-    cert_dct = select_certificate(certs, credentials.cert_common_name)
+
+
+    common_name = credentials.cert_common_name if hasattr(credentials, "cert_common_name") else "example.com"
+    cert_dct = select_certificate(certs, common_name)
     if cert_dct is None:
-        print("[ERROR] No certificate matching common name " + credentials.cert_common_name + " was found in acme.json. Aborting")
+        print("[ERROR] No certificate matching common name " + common_name + " was found in acme.json. Aborting")
         return
     if hasattr(credentials, "cert_output_location"):
-        open(credentials.cert_output_location + credentials.cert_common_name + ".crt", "wb").write(cert_dct['certificate'])
-        open(credentials.cert_output_location + credentials.cert_common_name + ".key", "wb").write(cert_dct['private_key'])
+        open(credentials.cert_output_location + common_name + ".crt", "wb").write(cert_dct['certificate'])
+        open(credentials.cert_output_location + common_name + ".key", "wb").write(cert_dct['private_key'])
     upload_certificate_to_paloalto(cert_dct['private_key'], cert_dct['certificate'],
-                                   credentials.cert_common_name, credentials.require_secure_cert)
+                                   common_name, credentials.require_secure_cert)
 
 main()
