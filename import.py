@@ -54,10 +54,10 @@ def get_random_alphanumeric_string(length: int):
     return result_str
 
 #Creates a pkcs12 (.pfx) object/file and uploads to the Palo Alto firewall. Uses credentials.py for API key generation, firewall selection
-def upload_certificate_to_paloalto(private_key: bytes, certificate: bytes, name: str, allow_insecure_cert: bool):
+def upload_certificate_to_paloalto(private_key: bytes, certificate: bytes, name: str, require_secure_cert: bool):
     #Generates an auth key for subsequent requests
     xmlapi_key = requests.get("https://" + credentials.hostname + "/api/?type=keygen&user=" + 
-                              credentials.username + "&password=" + credentials.password)
+                              credentials.username + "&password=" + credentials.password,verify=require_secure_cert)
     xmlapi_key = ET.fromstring(xmlapi_key.text).find(".//key").text
 
     rsa_key = load_pem_private_key(private_key, None)
@@ -72,7 +72,7 @@ def upload_certificate_to_paloalto(private_key: bytes, certificate: bytes, name:
 
     #Uses PANOS XMLAPI to import PFX data.
     import_url = "https://" + credentials.hostname + "/api/?type=import&category=keypair&certificate-name=" + cert_friendly_name + "&format=pkcs12&passphrase=" + password
-    response = requests.post(import_url + "&key=" + xmlapi_key, files={'file' : pfx_bytes})
+    response = requests.post(import_url + "&key=" + xmlapi_key, files={'file' : pfx_bytes},verify=require_secure_cert)
     print(response.text)
 
 def main():
@@ -86,6 +86,6 @@ def main():
         open(credentials.cert_output_location + credentials.cert_common_name + ".crt", "wb").write(cert_dct['certificate'])
         open(credentials.cert_output_location + credentials.cert_common_name + ".key", "wb").write(cert_dct['private_key'])
     upload_certificate_to_paloalto(cert_dct['private_key'], cert_dct['certificate'],
-                                   credentials.cert_common_name, credentials.allow_insecure_cert)
+                                   credentials.cert_common_name, credentials.require_secure_cert)
 
 main()
