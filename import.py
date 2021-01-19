@@ -11,7 +11,7 @@ from cryptography.hazmat.primitives.serialization import load_pem_private_key, p
 
 import credentials
 
-def get_acme_json(string: acme_json_file):
+def get_acme_json(acme_json_file: string):
     f = open(acme_json_file, 'r')
     contents = f.read()
     f.close()
@@ -125,7 +125,7 @@ def main():
     upload_certificate_to_paloalto(cert_dct['private_key'], cert_dct['certificate'],
                                    common_name, credentials.require_secure_cert)
 
-main()
+
 
 def get_config_option(args, key_name, default=None):
     arg = getattr(args, key_name)
@@ -136,7 +136,7 @@ def get_config_option(args, key_name, default=None):
     else:
         return default
 
-def main2():
+def main()
     parser = argparse.ArgumentParser()
     subparsers = parser.add_subparsers()
     parser.add_argument("--username", help="Define username to use to generate API key if not in credentials.py. Ignored if --apikey specified")
@@ -208,4 +208,4 @@ def main2():
             print("[INFO] Commit request sent succesfully")
     
 
-
+main()
