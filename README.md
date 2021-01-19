@@ -23,5 +23,4 @@ Run with python:
 ## Todo
 
  - Add robust error checking
- - Allow use of API key instead of username and password
- - Command line arguments as alternative to credentials.py
+ - Add support for Panorama pushing
