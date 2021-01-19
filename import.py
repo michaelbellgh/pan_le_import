@@ -167,7 +167,7 @@ def main():
     api_key = get_config_option(args, "apikey")
     if api_key is None and hasattr(credentials, "username") and hasattr(credentials, "password"):
         api_key = generate_api_key(credentials.username, credentials.password)
-    else:
+    elif api_key is None:
         raise Exception("No API key or username+password specified. Use --apikey XXX OR --username myusername --password=mypassword OR \n" + \
             "Specify apikey=XXX or username=myusername password=mypassword in credentials.py")
 
