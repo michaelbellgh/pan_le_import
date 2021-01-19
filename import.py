@@ -136,7 +136,7 @@ def get_config_option(args, key_name, default=None):
     else:
         return default
 
-def main()
+def main():
     parser = argparse.ArgumentParser()
     subparsers = parser.add_subparsers()
     parser.add_argument("--username", help="Define username to use to generate API key if not in credentials.py. Ignored if --apikey specified")
