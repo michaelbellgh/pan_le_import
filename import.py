@@ -109,24 +109,6 @@ def commit_to_panos(hostname: string, api_key: string, validate_ssl_certificate:
     response = requests.get(commit_url, verify=validate_ssl_certificate)
     return check_panos_errors(response.text)
 
-def main():
-    json_contents = get_acme_json()
-    certs = get_certificates(json_contents)
-
-
-    common_name = credentials.cert_common_name if hasattr(credentials, "cert_common_name") else "example.com"
-    cert_dct = select_certificate(certs, common_name)
-    if cert_dct is None:
-        print("[ERROR] No certificate matching common name " + common_name + " was found in acme.json. Aborting")
-        return
-    if hasattr(credentials, "cert_output_location"):
-        open(credentials.cert_output_location + common_name + ".crt", "wb").write(cert_dct['certificate'])
-        open(credentials.cert_output_location + common_name + ".key", "wb").write(cert_dct['private_key'])
-    upload_certificate_to_paloalto(cert_dct['private_key'], cert_dct['certificate'],
-                                   common_name, credentials.require_secure_cert)
-
-
-
 def get_config_option(args, key_name, default=None):
     arg = getattr(args, key_name)
     if arg is not None:
@@ -152,7 +134,11 @@ def main():
 
     args = parser.parse_known_args()
 
-    acme_json, hostname, cert_common_name, cert_output_location, api_key = ""
+    acme_json = ""
+    hostname = ""
+    cert_common_name = ""
+    cert_output_location = ""
+    api_key = ""
     disable_ssl_validation = False
 
     if args.acme_json is not None:
