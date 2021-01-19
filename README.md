@@ -12,8 +12,9 @@ username = "Palo Alto username"
 password = "Palo Alto password"
 hostname = "Palo Alto firewall hostname or IP address"
 traefik_acme_location = "/local/path/to/acme.json"
-cert_common_name = "Certificate common name to extract from acme.json"
-require_secure_cert=False
+commit=True
+keep_files=True
+disable_ssl_validation=True
 ```
 Run with python:
 

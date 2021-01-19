@@ -3,7 +3,12 @@
 # NOTE: Requires cryptography 3+ module (for PFX functionality)
 #Author - Michael Bell
 import xml.etree.ElementTree as ET
-import requests, json, base64, random, string, argparse
+import requests
+import json
+import base64
+import random
+import string
+import argparse
 from cryptography import x509
 import cryptography
 
@@ -45,49 +50,42 @@ def select_certificate(le_dict_list, common_name):
             if common_name_obj.value == common_name:
                 return le_dict
 
-#nice clean generator taken from https://pynative.com/python-generate-random-string/
+#Nice clean generator taken from https://pynative.com/python-generate-random-string/
 def get_random_alphanumeric_string(length: int):
     letters_and_digits = string.ascii_letters + string.digits
     result_str = ''.join((random.choice(letters_and_digits) for i in range(length)))
     return result_str
 
 def generate_api_key(hostname: string, username: string, password: string, disable_ssl_validation: bool):
-    xmlapi_key = requests.get("https://" + hostname + "/api/?type=keygen&user=" + 
+    xmlapi_key = requests.get("https://" + hostname + "/api/?type=keygen&user=" +
                               username + "&password=" + password,verify=not disable_ssl_validation)
     xmlapi_key = ET.fromstring(xmlapi_key.text).find(".//key").text
     return xmlapi_key
 
 def check_panos_errors(response):
-    if isinstance(root_node, str):
-        root_node = ET.fromstring(root_node)
-    if root_node.attrib['status'] == 'success':
-        if 'code' not in root_node.attrib:
+    if isinstance(response, str):
+        response = ET.fromstring(response)
+    if response.attrib['status'] == 'success':
+        if 'code' not in response.attrib:
             return True
-        if root_node.attrib['code'] in ('19', '20'):
+        if response.attrib['code'] in ('19', '20'):
             return True
-        elif root_node.attrib['code'] in ('7'):
+        elif response.attrib['code'] in ('7'):
             print("[WARN] Response returned success, but object not present")
             return True
         else:
-            print("[WARN] Response returned success, but non standard response code: " + root_node.attrib['code'])
+            print("[WARN] Response returned success, but non standard response code: " + response.attrib['code'])
             return True
-    elif 'code' in root_node.attrib:
-       print("[ERROR] Response returned error code: " + root_node.attrib['code'] + "\n" + str(root_node.text))
+    elif 'code' in response.attrib:
+       print("[ERROR] Response returned error code: " + response.attrib['code'] + "\n" + str(response.text))
        return False
-    elif 'code' not in root_node.attrib:
+    elif 'code' not in response.attrib:
         print("[ERROR] Response returned error")
         return False
 
 #Creates a pkcs12 (.pfx) object/file and uploads to the Palo Alto firewall. Uses credentials.py for API key generation, firewall selection
-def upload_certificate_to_paloalto(private_key: bytes, certificate: bytes, name: str, validate_ssl_certificate: bool):
+def upload_certificate_to_paloalto(apikey: string, private_key: bytes, certificate: bytes, name: str, validate_ssl_certificate: bool):
     #Generates an auth key for subsequent requests
-    if not hasattr(credentials, "username"):
-        raise Exception("No username specified in credentials.py")
-    if not hasattr(credentials, "password"):
-        raise Exception("No password specified in credentials.py")
-    xmlapi_key = requests.get("https://" + credentials.hostname + "/api/?type=keygen&user=" + 
-                              credentials.username + "&password=" + credentials.password,verify=validate_ssl_certificate)
-    xmlapi_key = ET.fromstring(xmlapi_key.text).find(".//key").text
 
     rsa_key = load_pem_private_key(private_key, None)
     cert = x509.load_pem_x509_certificate(certificate)
@@ -101,14 +99,17 @@ def upload_certificate_to_paloalto(private_key: bytes, certificate: bytes, name:
 
     #Uses PANOS XMLAPI to import PFX data.
     import_url = "https://" + credentials.hostname + "/api/?type=import&category=keypair&certificate-name=" + cert_friendly_name + "&format=pkcs12&passphrase=" + password
-    response = requests.post(import_url + "&key=" + xmlapi_key, files={'file' : pfx_bytes},verify=disable_ssl_validation)
+    response = requests.post(import_url + "&key=" + apikey, files={'file' : pfx_bytes},verify=validate_ssl_certificate)
     print(response.text)
 
+#Sends a commit request to the PANOS device. Doesnt support force, partial user commit or push to devices from Panorama
 def commit_to_panos(hostname: string, api_key: string, validate_ssl_certificate: bool):
     commit_url = "https://" + hostname + "/api/?type=commit&cmd=<commit></commit>&key=" + api_key
     response = requests.get(commit_url, verify=validate_ssl_certificate)
     return check_panos_errors(response.text)
 
+#Shortcut for overriding credentials.py options with command line.
+#If override on commmand line and option in credentials.py do not exist, returns None
 def get_config_option(args, key_name, default=None):
     arg = getattr(args, key_name)
     if arg is not None:
@@ -168,6 +169,8 @@ def main():
     if hostname is None:
         raise Exception("No hostname specified. Use --hostname or specify hostname=mypanoshostname in credentials.py")
 
+    #We need to generate an API key to make API requests to a PANOS XMLAPI interface
+    #Preference order: --apikey on command line -> apikey in credentials.py -> --username and --password on command line -> username and password in credentials.py
     api_key = get_config_option(args, "apikey")
     if api_key is None and hasattr(credentials, "username") and hasattr(credentials, "password"):
         api_key = generate_api_key(credentials.username, credentials.password)
@@ -186,16 +189,14 @@ def main():
     if cert_dct is None:
         print("[ERROR] No certificate matching common name " + cert_common_name + " was found in acme.json. Aborting")
         sys.exit(1)
-    
     if cert_output_location is not None and keep_files:
         open(cert_output_location + cert_common_name + ".crt", "wb").write(cert_dct['certificate'])
-        open(cert_output_location + +cert_common_name + ".key", "wb").write(cert_dct['private_key'])
+        open(cert_output_location + cert_common_name + ".key", "wb").write(cert_dct['private_key'])
     
-    upload_certificate_to_paloalto(cert_dct['private_key'], cert_dct['certificate'],
-                                   cert_common_name, not disable_ssl_validation)
+    upload_certificate_to_paloalto(api_key, cert_dct['private_key'], cert_dct['certificate'],
+    cert_common_name, not disable_ssl_validation)
     if commit:
         if commit_to_panos(hostname, api_key, not disable_ssl_validation):
             print("[INFO] Commit request sent succesfully")
-    
 
 main()
