@@ -120,7 +120,6 @@ def get_config_option(args, key_name, default=None):
 
 def main():
     parser = argparse.ArgumentParser()
-    subparsers = parser.add_subparsers()
     parser.add_argument("--username", help="Define username to use to generate API key if not in credentials.py. Ignored if --apikey specified")
     parser.add_argument("--password", help="Define password to use to generate API key if not in credentials.py. Ignored if --apikey specified")
     parser.add_argument("--apikey", help="API Key to use when uploading certificate to PANOS device")
@@ -132,7 +131,8 @@ def main():
     parser.add_argument("--disable_ssl_validation", default=False, action="store_true", help="Disables SSL Certificate validation for connecting to PANOS device if set to True. Defaults to False")
     parser.add_argument("--commit", action="store_true", default=False, help="Commit the firewall/Panorama configuration if set. Note: Does not support Panorama pushing of configuration")
 
-    args = parser.parse_known_args()
+    parser.set_defaults()
+    args, options = parser.parse_known_args()
 
     acme_json = ""
     hostname = ""
