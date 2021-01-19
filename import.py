@@ -86,7 +86,7 @@ def upload_certificate_to_paloalto(private_key: bytes, certificate: bytes, name:
     if not hasattr(credentials, "password"):
         raise Exception("No password specified in credentials.py")
     xmlapi_key = requests.get("https://" + credentials.hostname + "/api/?type=keygen&user=" + 
-                              credentials.username + "&password=" + credentials.password,verify=require_secure_cert)
+                              credentials.username + "&password=" + credentials.password,verify=validate_ssl_certificate)
     xmlapi_key = ET.fromstring(xmlapi_key.text).find(".//key").text
 
     rsa_key = load_pem_private_key(private_key, None)
