@@ -127,9 +127,13 @@ def main():
     parser.add_argument("--acme_json", help="Location of acme.json certificate storage file if not specified in credentials.py")
     parser.add_argument("--cert_common_name", help="Common name (CN) of certificate to extract from acme.json if not specified in credentials.py. Uses first found match")
     parser.add_argument("--cert_output_location", help="Location to store certificate and key if not specified in credentials.py. Ignored if --keep_files not specified")
-    parser.add_argument("--keep_files", help="Delete .crt and.key files after upload. Defaults to False", default=False, action="store_true")
-    parser.add_argument("--disable_ssl_validation", default=False, action="store_true", help="Disables SSL Certificate validation for connecting to PANOS device if set to True. Defaults to False")
-    parser.add_argument("--commit", action="store_true", default=False, help="Commit the firewall/Panorama configuration if set. Note: Does not support Panorama pushing of configuration")
+    
+    #We use choices = ["true", "false"] instead of a bool here due to bools always have to have a value. 
+    #get_config_option checks if arg is None to see if it wasnt specified, so we need a None-able type
+    #string is the simplest to parse, plus we do type=str.lower for case insensitive match
+    parser.add_argument("--keep_files", help="Delete .crt and.key files after upload. Defaults to False", choices=["true", "false"], nargs="?", type=str.lower)
+    parser.add_argument("--disable_ssl_validation", choices=["true", "false"], nargs="?", type=str.lower, help="Disables SSL Certificate validation for connecting to PANOS device if set to True. Defaults to False")
+    parser.add_argument("--commit", help="Commit the firewall/Panorama configuration if set. Note: Does not support Panorama pushing of configuration", choices=["true", "false"], nargs="?", type=str.lower)
 
     parser.set_defaults()
     args, options = parser.parse_known_args()
