@@ -1,29 +1,36 @@
-#import.py - Traefik letsencrypt certificate to Palo Alto Networks Firewall certificate
-#Imports certificate of chosen common name from Traefik 2.2+ acme.json (lets encrypt) and imports it into the Palo Alto firewall
-# NOTE: Requires cryptography 3+ module (for PFX functionality)
-#Author - Michael Bell
-import xml.etree.ElementTree as ET
-import requests
-import json
+"""
+import.py - Traefik letsencrypt certificate to Palo Alto Networks Firewall certificate
+Imports certificate of chosen common name from Traefik 2.2+ acme.json (lets encrypt)
+Then imports it into the Palo Alto firewall
+NOTE: Requires cryptography 3+ module (for PFX functionality)
+Author - Michael Bell
+"""
+
+import argparse
 import base64
+import json
 import random
 import string
-import argparse
+import sys
+import xml.etree.ElementTree as ET
 from cryptography import x509
-import cryptography
 
-from cryptography.hazmat.primitives.serialization import load_pem_private_key, pkcs12
+import requests
 
 import credentials
 
+
+
 def get_acme_json(acme_json_file: string):
-    f = open(acme_json_file, 'r')
+    """Reads the ACME json file from Traefik"""
+    f = open(acme_json_file, 'r', encoding='utf-8')
     contents = f.read()
     f.close()
     return contents
 
 
 def get_certificates(acme_json_contents):
+    """Returns a list of dicts containing the certificate data"""
     j = json.loads(acme_json_contents)
 
     certs_out = []
@@ -39,9 +46,11 @@ def get_certificates(acme_json_contents):
         certs_out.append(dictobj)
     return certs_out
 
-#Iterates through the certificate byte data, checks the common name
-#Then returns if it matches common_name
+
 def select_certificate(le_dict_list, common_name):
+    """Returns the certificate data for the given common name
+    Iterates through the certificate byte data, checks the common name
+    Then returns if it matches common_name"""
     for le_dict in le_dict_list:
         pem_bytes = le_dict['certificate']
         cert = x509.load_pem_x509_certificate(pem_bytes)
@@ -49,20 +58,25 @@ def select_certificate(le_dict_list, common_name):
         for common_name_obj in cns:
             if common_name_obj.value == common_name:
                 return le_dict
+    return None
 
-#Nice clean generator taken from https://pynative.com/python-generate-random-string/
+
 def get_random_alphanumeric_string(length: int):
+    """Returns a random string of numbers and letters"""
     letters_and_digits = string.ascii_letters + string.digits
     result_str = ''.join((random.choice(letters_and_digits) for i in range(length)))
     return result_str
 
-def generate_api_key(hostname: string, username: string, password: string, disable_ssl_validation: bool):
+def generate_api_key(hostname: string, username: string, password: string,
+     disable_ssl_validation: bool):
+    """Generates an API key for PANOS"""
     xmlapi_key = requests.get("https://" + hostname + "/api/?type=keygen&user=" +
                               username + "&password=" + password,verify=not disable_ssl_validation)
     xmlapi_key = ET.fromstring(xmlapi_key.text).find(".//key").text
     return xmlapi_key
 
 def check_panos_errors(response):
+    """Checks for PANOS errors in the API response"""
     if isinstance(response, str):
         response = ET.fromstring(response)
     if response.attrib['status'] == 'success':
@@ -74,20 +88,25 @@ def check_panos_errors(response):
             print("[WARN] Response returned success, but object not present")
             return True
         else:
-            print("[WARN] Response returned success, but non standard response code: " + response.attrib['code'])
+            print("[WARN] Response returned success, but non standard response code: " + \
+             response.attrib['code'])
             return True
     elif 'code' in response.attrib:
-       print("[ERROR] Response returned error code: " + response.attrib['code'] + "\n" + str(response.text))
-       return False
+        print("[ERROR] Response returned error code: " + response.attrib['code'] + \
+            "\n" + str(response.text))
+        return False
     elif 'code' not in response.attrib:
         print("[ERROR] Response returned error")
         return False
+    return None
 
-#Creates a pkcs12 (.pfx) object/file and uploads to the Palo Alto firewall. Uses credentials.py for API key generation, firewall selection
-def upload_certificate_to_paloalto(apikey: string, private_key: bytes, certificate: bytes, name: str, validate_ssl_certificate: bool):
+def upload_certificate_to_paloalto(apikey: string, private_key: bytes, certificate: bytes,
+     name: str, validate_ssl_certificate: bool):
+    """Uploads certificate to Palo Alto firewall
+    Creates a pkcs12 (.pfx) object/file and uploads to the Palo Alto firewall. Uses credentials.py for API key generation, firewall selection"""
     #Generates an auth key for subsequent requests
 
-    rsa_key = load_pem_private_key(private_key, None)
+    rsa_key = x509.load_pem_private_key(private_key, None)
     cert = x509.load_pem_x509_certificate(certificate)
 
     password = get_random_alphanumeric_string(18)
@@ -102,15 +121,18 @@ def upload_certificate_to_paloalto(apikey: string, private_key: bytes, certifica
     response = requests.post(import_url + "&key=" + apikey, files={'file' : pfx_bytes},verify=validate_ssl_certificate)
     print(response.text)
 
-#Sends a commit request to the PANOS device. Doesnt support force, partial user commit or push to devices from Panorama
+
 def commit_to_panos(hostname: string, api_key: string, validate_ssl_certificate: bool):
+    """Sends a commit request to the PANOS device.
+     Doesnt support force, partial user commit or push to devices from Panorama"""
     commit_url = "https://" + hostname + "/api/?type=commit&cmd=<commit></commit>&key=" + api_key
     response = requests.get(commit_url, verify=validate_ssl_certificate)
     return check_panos_errors(response.text)
 
-#Shortcut for overriding credentials.py options with command line.
-#If override on commmand line and option in credentials.py do not exist, returns None
+
 def get_config_option(args, key_name, default=None):
+    """Shortcut for overriding credentials.py options with command line.
+    If override on commmand line and option in credentials.py do not exist, returns None"""
     arg = getattr(args, key_name)
     if arg is not None:
         return arg
@@ -120,6 +142,7 @@ def get_config_option(args, key_name, default=None):
         return default
 
 def main():
+    """Main function"""
     parser = argparse.ArgumentParser()
     parser.add_argument("--username", help="Define username to use to generate API key if not in credentials.py. Ignored if --apikey specified")
     parser.add_argument("--password", help="Define password to use to generate API key if not in credentials.py. Ignored if --apikey specified")
@@ -137,7 +160,7 @@ def main():
     parser.add_argument("--commit", help="Commit the firewall/Panorama configuration if set. Note: Does not support Panorama pushing of configuration", choices=["true", "false"], nargs="?", type=str.lower)
 
     parser.set_defaults()
-    args, options = parser.parse_known_args()
+    args, _ = parser.parse_known_args()
 
     acme_json = ""
     hostname = ""
