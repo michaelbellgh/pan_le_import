@@ -14,6 +14,7 @@ import string
 import sys
 import xml.etree.ElementTree as ET
 from cryptography import x509
+from cryptography.hazmat.primitives.serialization import load_pem_private_ke
 
 import requests
 
